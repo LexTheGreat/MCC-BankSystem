@@ -1,0 +1,165 @@
+os.loadAPI("/util/crypt")
+os.loadAPI("/util/log")
+--os.loadAPI("/server/econ")
+
+term.clear()
+term.setCursorPos(1,1)
+
+local modemSide = "top"
+local version = "BackOS100"
+local dataComputer = 12
+
+log.info("[BankOS] Started.")
+
+local function serve()
+	rednet.open(modemSide)
+	local senderId, message = rednet.receive(1)
+	if message == nil then return end
+	
+	if string.len(message) >= string.len(version) then
+		if string.sub(message, 1, string.len(version)) == version then
+			local bits = textutils.unserialize(string.sub(message, string.len(version) + 1))
+			local command = bits[1]
+			local acc = bits[2]
+			local pass = bits[3]
+			
+			if senderId == dataComputer then
+				log.info("[DCP-"..senderId.."] "..command .. " from " .. acc)
+			else
+				log.info("["..senderId.."] "..command .. " from " .. acc)
+			end
+			
+			if command == "LOGIN" then
+				if fs.exists("acc/" .. acc .. ".acc") then
+					local file = fs.open("acc/" .. acc .. ".acc", "r")
+					local passC = file.readLine()
+					local bal = file.readLine()
+					file.close()
+					
+					log.info(pass)
+					log.info(passC)
+					
+					if crypt.checkPassword(passC, pass) then
+						rednet.send(senderId, "+")
+						return
+					end
+				end
+			elseif command == "NEWACC" then
+				if senderId == dataComputer then
+					if not fs.exists("acc/" .. acc .. ".acc") then
+						local file = fs.open("acc/" .. acc .. ".acc", "a")
+						file.writeLine(pass)
+						file.writeLine("0")
+						file.close()
+						
+						log.info("[DCP-"..senderId.."] Created new account file. ID: " .. acc)
+						
+						rednet.send(senderId, "+")
+						return
+					end
+					log.error("[DCP-"..senderId.."] Account already exists!")
+				end
+			elseif command == "MODACC" then
+				if senderId == dataComputer then
+					if fs.exists("acc/" .. acc .. ".acc") then
+						local file = fs.open("acc/" .. acc .. ".acc", "r")
+						local passC = file.readLine()
+						local bal = tonumber(file.readLine())
+						file.close()
+						
+						file = fs.open("acc/" .. acc .. ".acc", "w")
+						file.writeLine(passC)
+						file.writeLine(bal + tonumber(pass))
+						file.close()
+						
+						log.info("[DCP-"..senderId.."] ===Transaction===")
+						log.info("[DCP-"..senderId.."] Type: Edit")
+						log.info("[DCP-"..senderId.."] AMT: " .. tonumber(pass))
+						log.info("[DCP-"..senderId.."] Old Balance: " .. bal)
+						log.info("[DCP-"..senderId.."] New Balance: " .. bal + tonumber(pass))
+						log.info("[DCP-"..senderId.."] ===Transaction===")
+						
+						rednet.send(senderId, "+")
+						return
+					end
+					log.error("[DCP-"..senderId.."] No account with ID!")
+				end
+			elseif command == "BALANCE" then
+				if fs.exists("acc/" .. acc .. ".acc") then
+					local file = fs.open("acc/" .. acc .. ".acc", "r")
+					local passC = file.readLine()
+					local bal = file.readLine()
+					file.close()
+
+					if crypt.checkPassword(passC, pass) then
+						rednet.send(senderId, bal)
+						return
+					end
+				end
+			elseif command == "TRANSFER" then
+				local dest = bits[4]
+				local amt = tonumber(bits[5])
+				if fs.exists("acc/" .. acc .. ".acc") and fs.exists("acc/" .. dest .. ".acc") then
+					local fileFrom = fs.open("acc/" .. acc .. ".acc", "r")
+					local passC = fileFrom.readLine()
+					local bal = tonumber(fileFrom.readLine())
+					fileFrom.close()
+
+					local fileTo = fs.open("acc/" .. dest .. ".acc", "r")
+					local passT = fileTo.readLine()
+					local balT = tonumber(fileTo.readLine())
+					fileTo.close()
+
+					if crypt.checkPassword(passC, pass) and bal >= amt then
+						fileFrom = fs.open("acc/" .. acc .. ".acc", "w")
+						fileTo = fs.open("acc/" .. dest .. ".acc", "w")
+
+						fileFrom.writeLine(passC)
+						fileFrom.writeLine(bal - amt)
+						fileFrom.close()
+
+						fileTo.writeLine(passT)
+						fileTo.writeLine(balT + amt)
+						fileTo.close()
+
+						log.info("[Bank] Transferred " .. amt .. " from " .. acc .. " to " .. dest)
+
+						rednet.send(senderId, "+")
+						return
+					end
+				end
+		elseif command == "WITHDRAW" then
+			log.error("["..senderId.."] Sent an illegal WITHDRAW packet!")
+      end
+			--[[ Disabled withdraw. Go to the main bank
+      elseif command == "WITHDRAW" then
+				local amt = tonumber(bits[4])
+				if fs.exists("acc/" .. acc .. ".txt") then
+					local file = fs.open("acc/" .. acc .. ".txt", "r")
+					local passC = file.readLine()
+					local bal = tonumber(file.readLine())
+					file.close()
+
+					if crypt.checkPassword(pass, passC) and bal >= amt then
+						file = fs.open("acc/" .. acc .. ".txt", "w")
+
+						file.writeLine(passC)
+						file.writeLine(bal - amt)
+						file.close()
+
+						log (1, "Withdrew " .. amt .. " from " .. acc)
+
+						rednet.send(senderId, "+")
+						return
+					end
+				end
+			end ]]--
+		end
+		log.warn("["..senderId.."] Request denied.")
+		rednet.send(senderId, "-")
+	end
+end
+
+while true do
+	serve()
+end

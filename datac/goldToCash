@@ -1,0 +1,47 @@
+os.loadAPI("/util/crypt")
+os.loadAPI("/util/log")
+os.loadAPI("/datac/econ")
+
+local args = {...}
+local modemSide = "top"
+local serverId = 10
+local version = "BackOS100"
+
+if #args ~= 2 then
+	log.error("Invalid number of arguments!")
+	return
+end
+
+local account = args[1]
+local amountOfIngots = args[2]
+
+local TotalGold = econ.getGoldTotal()
+local giveCash = 0
+
+for i=1,amountOfIngots do
+	log.info("New price of gold = " .. econ.round(econ.getGoldPrice(TotalGold)))
+	giveCash = giveCash + econ.round(econ.getGoldPrice(TotalGold))
+	TotalGold = TotalGold + 1
+end
+
+log.info("Give Cash = " .. giveCash)
+
+--[[ ]]--
+
+local senderId, response = nil, nil
+rednet.open(modemSide)
+
+rednet.send(serverId, version .. textutils.serialize( { "MODACC", account, giveCash} ) )
+
+log.info("Changing balance of account with ID: " .. args[1])
+log.info("Amount: " .. giveCash)
+
+while true do
+	rednet.open(modemSide)
+	senderId, response = rednet.receive(5)
+	if senderId == serverId then	break	end
+	log.info("Waiting for server...")
+end
+rednet.close(modemSide)
+
+log.info("Response: " .. response .. " | +/-")

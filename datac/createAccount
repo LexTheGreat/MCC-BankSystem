@@ -1,0 +1,33 @@
+os.loadAPI("/util/crypt")
+os.loadAPI("/util/log")
+
+local args = {...}
+local modemSide = "top"
+local serverId = 10
+local version = "BackOS100"
+
+if #args ~= 2 then
+	log.error("Invalid number of arguments!")
+	return
+end
+
+local senderId, response = nil, nil
+rednet.open(modemSide)
+
+local cryptPassword = crypt.hashPassword(args[2])
+
+rednet.send(serverId, version .. textutils.serialize( { "NEWACC", args[1], cryptPassword} ) )
+
+log.info("Creating Account with ID: " .. args[1])
+log.info(args[1] .. " | " .. args[2] .. " -> " .. cryptPassword)
+
+
+while true do
+	rednet.open(modemSide)
+	senderId, response = rednet.receive(5)
+	if senderId == serverId then	break	end
+	log.info("Waiting for server...")
+end
+rednet.close(modemSide)
+
+log.info("Response: " .. response)

@@ -1,0 +1,83 @@
+--[[ 
+	Storage System
+]]--
+
+--[[ Load Sensor from behind ]]--
+os.loadAPI("ocs/apis/sensor")
+chestSensor = sensor.wrap("back")
+
+--[[ Storage Units, if combined chest must use both pos relative to sensor ]]--
+local SilverChests = {"0,0,1","0,0,2"}
+local GoldChests = {"0,0,-1","0,0,-2"}
+
+function round(n)
+  return math.floor((math.floor(n*2) + 1)/2)
+end
+
+function getSlotsAtPos(Pos)
+  return chestSensor.getTargetDetails(Pos).Slots
+end
+
+function countItemsInSlots(Slots)
+  local count = 0
+  for i=1,#Slots do
+    count = count + Slots[i].Size
+  end
+  
+  return count
+end
+
+function getSilverTotal()
+	local TotalSilver = 0
+	for i=1,#SilverChests do
+		TotalSilver = TotalSilver + countItemsInSlots(getSlotsAtPos(SilverChests[i]))
+	end
+	
+	return TotalSilver
+end
+
+function getGoldTotal()
+	local TotalGold = 0
+	for i=1,#GoldChests do
+		TotalGold = TotalGold + countItemsInSlots(getSlotsAtPos(GoldChests[i]))
+	end
+	
+	return TotalGold
+end
+
+--[[ 
+	Econ System
+	
+]]--
+
+function CalPrice(CTotal, BPrice, LPrice, Spread)
+	local calc = (Spread*CTotal^2)+BPrice
+	
+	if calc < LPrice then
+		calc = LPrice
+	end
+	
+	return calc
+end
+
+-- Base Price = 100 Cr
+function getSilverPrice(silverAmount)
+	return CalPrice(silverAmount, 10, 1, -0.000001)
+end
+
+-- Base Price = 100 Cr
+function getGoldPrice(goldAmount)
+	return CalPrice(goldAmount, 100, 10, -0.0000001)
+end
+
+function getTransferTax()
+	
+end
+
+function getWithdrawTax()
+	
+end
+
+function getDepositAmount()
+
+end

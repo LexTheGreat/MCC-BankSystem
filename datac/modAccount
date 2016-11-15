@@ -1,0 +1,30 @@
+os.loadAPI("/util/crypt")
+os.loadAPI("/util/log")
+
+local args = {...}
+local modemSide = "top"
+local serverId = 10
+local version = "BackOS100"
+
+if #args ~= 2 then
+	log.error("Invalid number of arguments!")
+	return
+end
+
+local senderId, response = nil, nil
+rednet.open(modemSide)
+
+rednet.send(serverId, version .. textutils.serialize( { "MODACC", args[1], args[2]} ) )
+
+log.info("Changing balance of account with ID: " .. args[1])
+log.info("Amount: " .. args[2])
+
+while true do
+	rednet.open(modemSide)
+	senderId, response = rednet.receive(5)
+	if senderId == serverId then	break	end
+	log.info("Waiting for server...")
+end
+rednet.close(modemSide)
+
+log.info("Response: " .. response .. " | +/-")

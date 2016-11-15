@@ -1,0 +1,45 @@
+local modemSide = "right"
+local clientId = 0
+local version = "CC-Bank-0.2.0-Compatible"
+
+local function serve()
+	rednet.open(modemSide)
+	local senderId, message = rednet.receive()
+
+	if senderId == clientId then
+		if string.len(message) >= string.len(version) then
+			if string.sub(message, 1, string.len(version)) == version then
+				local bits = textutils.unserialize(string.sub(message, string.len(version) + 1))
+				local command = bits[1]
+				local amount = tonumber(bits[2])
+				
+				if command == "WITHDRAW" then
+					local slot = 1
+					turtle.select(slot)
+					for i = 1, amount, 1 do
+						while turtle.getItemCount(slot) <= 0 do
+							if slot < 16 then
+								slot = slot + 1
+								turtle.select(slot)
+							else
+								rednet.send(senderId, "-")
+								return
+							end
+						end
+						
+						turtle.drop(1)
+					end
+					rednet.send(senderId, "+")
+				elseif command == "DEPOSIT" then
+					-- Depositing cannot be implemented until turtle.suck() takes a number
+					rednet.send(senderId, "-")
+				end
+			end
+			rednet.send(senderId, "-")
+		end
+	end
+end
+
+while true do
+	serve()
+end

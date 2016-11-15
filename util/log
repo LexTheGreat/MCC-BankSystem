@@ -1,0 +1,11 @@
+function info(message)
+	print("[INFO] " .. textutils.formatTime(os.time()) .. " - " .. message)
+end
+
+function warn(message)
+	print("[WARN] " .. textutils.formatTime(os.time()) .. " - " .. message)
+end
+
+function error(message)
+	print("[ERRO] " .. textutils.formatTime(os.time()) .. " - " .. message)
+end
